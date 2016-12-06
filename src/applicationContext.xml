@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns="http://www.springframework.org/schema/beans" xmlns:aop="http://www.springframework.org/schema/aop"
+  xmlns:context="http://www.springframework.org/schema/context" xmlns:tx="http://www.springframework.org/schema/tx"
+  xmlns:cache="http://www.springframework.org/schema/cache" xmlns:p="http://www.springframework.org/schema/p"
+  xsi:schemaLocation="http://www.springframework.org/schema/beans 
+     http://www.springframework.org/schema/beans/spring-beans-4.3.xsd
+     http://www.springframework.org/schema/aop
+     http://www.springframework.org/schema/aop/spring-aop-4.3.xsd
+     http://www.springframework.org/schema/context
+     http://www.springframework.org/schema/context/spring-context-4.3.xsd
+     http://www.springframework.org/schema/tx
+     http://www.springframework.org/schema/tx/spring-tx-4.3.xsd ">
+     
+     <!-- 加载 .properties 配置文件 -->
+     <!-- <context:property-placeholder location="classpath:application.properties" /> -->
+     
+     <!-- c3p0 连接池 -->
+     <bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource" destroy-method="close" lazy-init="false">
+        <property name="driverClass" value="com.mysql.jdbc.Driver"></property>
+        <property name="jdbcUrl" value="jdbc:mysql://localhost:3306/test?characterEncoding=UTF-8&amp;zeroDateTimeBehavior=convertToNull&amp;autoReconnect=true"></property>  
+        <property name="user" value="root"></property>
+        <property name="password" value="123"></property>
+        <property name="acquireIncrement" value="5"></property>  
+        <property name="initialPoolSize" value="20"></property>
+        <property name="maxIdleTime" value="60"></property>
+        <property name="maxStatements" value="100"></property>
+        <property name="maxPoolSize" value="1024"></property>
+        <property name="minPoolSize" value="50"></property>
+        <property name="acquireRetryDelay" value="1000"></property>
+        <property name="acquireRetryAttempts" value="60"></property>
+        <property name="breakAfterAcquireFailure" value="false"></property>
+     </bean>
+     
+     <!-- Spring-hibernate整合 -->
+     <bean id="sessionFactory" class="org.springframework.orm.hibernate5.LocalSessionFactoryBean">
+        <property name="dataSource">
+            <ref bean="dataSource" />
+        </property>
+        <property name="hibernateProperties">
+            <props>
+                <prop key="hibernate.dialect">org.hibernate.dialect.MySQL5Dialect</prop>
+                <prop key="javax.persistence.validation.mode">none</prop>
+                <prop key="hibernate.hbm2ddl.auto">update</prop>
+                <prop key="hibernate.show_sql">true</prop>
+                <prop key="current_session_context_class">thread</prop>
+                <prop key="hibernate.format_sql">true</prop>
+            </props>
+        </property>
+        <property name="packagesToScan" value="org.springmvc.aop.model"></property>
+     </bean>
+     
+     <!-- 启动注解 -->
+     <context:annotation-config />
+     <context:component-scan base-package="org.springmvc.aop" >
+        <!-- Controller 层支持 -->
+        <context:include-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+        <!-- Service 层支持 -->
+        <context:include-filter type="annotation" expression="org.springframework.stereotype.Service"/>
+        <!-- Dao 层支持 -->
+        <context:include-filter type="annotation" expression="org.springframework.stereotype.Repository"/>
+        <!-- 把普通pojo实例化到spring容器中 -->
+        <context:include-filter type="annotation" expression="org.springframework.stereotype.Component"/>
+     </context:component-scan>
+     
+     <!-- 事务配置 -->
+     <bean id="txManager" class="org.springframework.orm.hibernate5.HibernateTransactionManager" >  
+       <property name="sessionFactory" ref="sessionFactory"></property>
+     </bean>
+     
+     <!-- 声明式事务的支持 -->
+     <tx:annotation-driven transaction-manager="txManager" />
+     
+     <!-- 管理型事务设置 -->
+     <tx:advice id="txadvice" transaction-manager="txManager">
+        <tx:attributes>
+            <tx:method name="getDao" propagation="NOT_SUPPORTED"/>
+            <tx:method name="getJdbcTemplate" propagation="NOT_SUPPORTED"/>
+            <tx:method name="getHDao" propagation="NOT_SUPPORTED"/>
+            <tx:method name="getHibernateDao" propagation="NOT_SUPPORTED"/>
+            <tx:method name="getHibernateTemplate" propagation="NOT_SUPPORTED"/>
+            <tx:method name="getModelClass" propagation="NOT_SUPPORTED"/>
+            <tx:method name="get*" read-only="true" propagation="REQUIRED"/>
+            <tx:method name="find*" read-only="true" propagation="REQUIRED"/>
+            <tx:method name="save*" propagation="REQUIRED"/>
+            <tx:method name="update*" propagation="REQUIRED"/>
+            <tx:method name="remove*" propagation="REQUIRED"/>
+            <tx:method name="add*" propagation="REQUIRED"/>
+            <tx:method name="*"/>
+        </tx:attributes>
+     </tx:advice>
+     
+     <!-- 管理型事务 aop配置 -->
+     <aop:config>
+        <!-- 事务切面配置 -->
+        <aop:pointcut expression="execution(public * org.springmvc.aop.service..*.*(..))" id="pointcutTransactionService"/>
+        <aop:pointcut expression="execution(public * org.springmvc.aop.dao..*.*(..))" id="pointcutTransactionDAO"/>
+        <aop:advisor advice-ref="txadvice" pointcut-ref="pointcutTransactionService" />
+        <aop:advisor advice-ref="txadvice" pointcut-ref="pointcutTransactionDAO" />
+     </aop:config>
+</beans>
